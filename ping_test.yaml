@@ -1,0 +1,7 @@
+---
+- name: Test Ping to Hosts
+  hosts: all
+  become: false  # No necesita privilegios elevados para el ping
+  tasks:
+    - name: Ping each host
+      ansible.builtin.ping:

@@ -1,0 +1,45 @@
+- name: Instalar y ejecutar Krita en equipos Ubuntu
+  hosts: "{{ target_host }}"
+  become: true  # Elevación de privilegios
+  become_user: root  # Ejecución como root
+  vars:
+    krita_installed: false
+  tasks:
+    - name: Actualizar lista de paquetes
+      ansible.builtin.apt:
+        update_cache: yes
+      register: apt_update_result
+
+    - name: Verificar si Krita está instalado
+      ansible.builtin.shell:
+        cmd: dpkg -l | grep krita
+      register: krita_check
+      failed_when: false  # Evitar fallos si el paquete no está instalado
+      changed_when: false
+
+    - name: Definir si Krita está instalado
+      ansible.builtin.set_fact:
+        krita_installed: "{{ krita_check.rc == 0 }}"
+
+    - name: Instalar Krita si no está instalado
+      ansible.builtin.apt:
+        name: krita
+        state: present
+      register: krita_install_result
+      when: not krita_installed
+
+    - name: Obtener sesión de usuario actual
+      ansible.builtin.shell: 
+        cmd: "who | awk '{print $1}' | head -n 1"
+      register: current_user
+      changed_when: false
+      failed_when: false
+
+    - name: Ejecutar Krita con configuración de sesión
+      ansible.builtin.shell: 
+        cmd: "DISPLAY=:0 sudo -u {{ current_user.stdout }} krita"
+      become: false
+      async: 300  # Esperar hasta 5 minutos
+      poll: 0  # No bloquear la ejecución
+      when: krita_installed or (krita_install_result is defined and krita_install_result.changed)
+      ignore_errors: true  # Permitir que continúe si hay un error
